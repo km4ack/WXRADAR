@@ -1,0 +1,122 @@
+#!/bin/bash
+
+#This script will scan for incoming wxradar requests and reply to each
+#request with the appropriate radar image. Radar images are downsized 
+#and converted to jpg format before being sent. This script will ignore
+#requests not addressed to WXRADAR which is an aux call defined in the
+#pat configure file. K4FUN is the primary call and is used with permission.
+#Special thanks to the Stones River Amateur Radio Club and Tom Delker
+#K1KY who is the trustee for the club call for allowing the use of the
+#club call for the WXRADAR service.
+#29OCT2023 KM4ACK
+
+clear
+x=1
+MAIN(){
+#Wait on new messages to arrive in inbox
+while true; do
+	ck=$(ls /home/pi/.local/share/pat/mailbox/K4FUN/in/)
+	if [ -n "$ck" ]; then
+		break	
+	fi
+	echo "###########################"
+	echo "# WXRADAR Winlink Service #"
+	echo "###########################"
+	echo "Waiting on new message $x"
+	((x++))
+	sleep 1
+	clear
+done
+x=1	#reset x variable
+#loop through inbox messages
+for file in /home/pi/.local/share/pat/mailbox/K4FUN/in/*; do
+	ADDR_TO=$(grep To: $file | awk '{print $2}' | tr -d '\r' | sed 's/^ //g')
+	if [ "$ADDR_TO" = 'WXRADAR' ]; then								#Verify addressed to wxradar*
+		SEND_TO=$(grep From $file | awk -F ":" '{print $2}' | tr -d '\r' | sed 's/^ //g')	#This is who we reply to
+		RADAR=$(grep Subject $file | awk -F ":" '{print $2}' | tr -d '\r' | sed 's/^ //g')	#Get requested code from subject line
+		RADAR=${RADAR^^}
+
+		#Decide which radar to use
+		case $RADAR in
+			PNW) LINK=https://radar.weather.gov/ridge/standard/PACNORTHWEST_0.gif ;;
+			NOR) LINK=https://radar.weather.gov/ridge/standard/NORTHROCKIES_0.gif ;;
+			UMS) LINK=https://radar.weather.gov/ridge/standard/UPPERMISSVLY_0.gif ;;
+			CGL) LINK=https://radar.weather.gov/ridge/standard/CENTGRLAKES_0.gif ;;
+			NOE) LINK=https://radar.weather.gov/ridge/standard/NORTHEAST_0.gif ;;
+			PSW) LINK=https://radar.weather.gov/ridge/standard/PACSOUTHWEST_0.gif ;;
+			SOR) LINK=https://radar.weather.gov/ridge/standard/SOUTHROCKIES_0.gif ;;
+			SOP) LINK=https://radar.weather.gov/ridge/standard/SOUTHPLAINS_0.gif ;;
+			SMV) LINK=https://radar.weather.gov/ridge/standard/SOUTHMISSVLY_0.gif ;;
+			SOE) LINK=https://radar.weather.gov/ridge/standard/SOUTHEAST_0.gif ;;
+			NAT) LINK=https://radar.weather.gov/ridge/standard/CONUS_0.gif ;;
+			ALA) LINK=https://radar.weather.gov/ridge/standard/ALASKA_0.gif ;;
+			HAW) LINK=https://radar.weather.gov/ridge/standard/HAWAII_0.gif ;;
+			GUA) LINK=https://radar.weather.gov/ridge/standard/GUAM_0.gif ;;
+			HELP) help_me && sleep 1 && MAIN ;;
+			*) not_found && MAIN;;
+		esac
+		cd /run/user/1000/						#mv to ram directory
+		wget ${LINK}							#Download Radar
+		INPUT_IMG=$(echo ${LINK} | awk -F "/" '{print $NF}')		#Set image name
+		/usr/bin/convert -quality 5 ${INPUT_IMG} radar-image.jpg	#Downsize and convert to jpg
+		IMAGE=/run/user/1000/radar-image.jpg				#Set jpg image name
+		export SEND_TO
+		export IMAGE
+		SEND_RADAR							#call SEND_RADAR function
+		mv $file $HOME/.local/share/pat/mailbox/K4FUN/archive/		#move message to archive dir
+		pat connect telnet						#Run pat connect
+		rm /run/user/1000/$INPUT_IMG /run/user/1000/radar-image.jpg	#Remove temp images
+	else
+		mv $file $HOME/.local/share/pat/mailbox/K4FUN/archive/		#archive if not addressed to wxradar
+	fi
+done
+MAIN
+}
+
+SEND_RADAR(){
+
+#function posts radar image to outbox
+expect -c 'spawn pat compose -r WXRADAR -s "Image attached" -a $env(IMAGE) \
+"$env(SEND_TO)"; expect "\[Y/n\]"; sleep 0.3; send -- "Y\n"; sleep 0.5; send -- "Radar Image Attached\n\u0004"; expect eof' 
+
+}
+
+not_found(){
+
+#function for commands not recognized
+echo "Send a new message with "help" as the only word in \
+the subject line for a list of commands" | pat compose ${SEND_TO} -r WXRADAR -s "ERROR::Command not Found" 
+
+mv $file $HOME/.local/share/pat/mailbox/K4FUN/archive/
+
+}
+
+help_me(){
+
+#function replies to "help" request
+echo -e "To receive a radar image send a Winlink message to WXRADAR and \
+put ONE of the following 3 character codes into the subject line. \
+What goes in the body doesn't matter.\n\n\
+Send PNW for Pacific Northwest\n\
+Send NOR for Northern Rockies\n\
+Send UMS for Upper Miss Valley\n\
+Send CGL for Central Great Lakes\n\
+Send NOE for Northeast\n\
+Send PSW for Pacific Southwest\n\
+Send SOR for Southern Rockies\n\
+Send SOP for Southern Plains\n\
+Send SMV for Souther Miss Valley\n\
+Send SOE for Southeast\n\
+Send NAT for National\n\
+Send ALA for Alaska\n\
+Send HAW for Hawaii\n\
+Send GUA for Guam\n" | pat compose ${SEND_TO} -r WXRADAR -s "Help Commands"
+
+mv $file $HOME/.local/share/pat/mailbox/K4FUN/archive/
+pat connect telnet
+
+}
+
+MAIN		#Call main function
+
+# *This keeps the script from replying to messages sent to the club call.
