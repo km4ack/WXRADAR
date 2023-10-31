@@ -17,7 +17,7 @@ Using the system is as simple as sending a Winlink message to **WXRADAR** with t
 	Subject: SMV
 	Body: [anything]
 
-# Codes
+# Radar Codes
 Note: Codes do not contain numbers.
 
 | CODE       | Radar Area  |
