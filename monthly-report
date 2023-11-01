@@ -1,0 +1,73 @@
+#!/bin/bash
+
+#script creates monthly report for WXRADAR 
+#30OCT2023 KM4ACK
+
+#crontab hint
+#01 00 01 * * /path/to/file/monthly-report
+
+out_dir=$HOME/Desktop/wxradar_reports/		#include trailing "/"
+dir=/home/pi/.local/share/pat/mailbox/K4FUN/archive
+dir_sent=/home/pi/.local/share/pat/mailbox/K4FUN/sent
+tmp_file=/run/user/1000/tmp_report.txt
+sorted_file=/run/user/1000/sorted_tmp_file.txt
+month=$(date +%m)
+year=$(date +%Y)
+
+if [ -f ${tmp_file} ]; then
+	rm ${tmp_file}
+fi
+
+if [ -f ${sorted_file} ]; then
+	rm ${sorted_file}
+fi
+
+mkdir -p ${out_dir}
+#get count of connections
+file_count=$(ls $dir | wc -l)
+
+#Script run on first day of every month
+#Below changes read out to be accurate for
+#the previous month
+case $month in 
+	1) month=December ;;
+	2) month=January ;;
+	3) month=February ;;
+	4) month=March ;;
+	5) month=April ;;
+	6) month=May ;;
+	7) month=June ;;
+	8) month=July ;;
+	9) month=August ;;
+	10) month=September ;;
+	11) month=October ;;
+	12) month=Novermer ;;
+esac
+
+#set output file name with date
+final_file=${out_dir}${year}_${month}_WXRADR_Report.txt
+
+#loop though archive dir and get list of calls that connected
+for file in ${dir}/*; do
+	ADDR_FROM=$(grep From: $file | awk '{print $2}' | tr -d '\r' | sed 's/^ //g')
+	echo ${ADDR_FROM} >> ${tmp_file}
+done
+
+#remove dupes from list
+sort -u ${tmp_file} > ${sorted_file}
+
+#count number of operators
+unique_count=$(wc -l ${sorted_file} | awk '{print $1}')
+
+#create report 
+echo "WXRADAR Monthly Report" > ${final_file}
+echo "For ${month} ${year}" >> ${final_file}
+echo "---------------------------" >> ${final_file}
+echo "Total Requests = $file_count" >> ${final_file}
+echo "Unique calls = ${unique_count}" >> ${final_file}
+echo "Calls that made requests:" >> ${final_file}
+cat ${sorted_file} >> ${final_file}
+
+#remove all emails from the system
+rm ${dir}/*
+rm ${dir_sent}/*
