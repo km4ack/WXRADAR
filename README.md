@@ -6,8 +6,11 @@ A Winlink Service
 # Preface
 The WXRADAR service provides amateur radio operators a way to request the latest US radar images and have them delivered to their [Winlink](https://winlink.org/) inbox. This service works with both telnet and RF for the amateur operator.
 
-# <a id="caution"></a>Caution
+# Caution
 When working with RF Winlink connections, we have severely limited bandwidth. Even with images as small as 10kb, typical download times are ~8-10 minutes when working with a *good* [VARA HF](https://rosmodem.wordpress.com/) connection. Under poor propagation, download times will be much longer. VARA FM is much faster and should be used when possible. Download time for VARA FM with a paid upgrade is ~60 seconds. Please use VARA FM or telnet connections to test the WXRADAR system as to avoid tying up a gateway unnecessarily.
+
+# Bug Reports
+If you find a bug please open an [issue ticket](https://github.com/km4ack/WXRADAR/issues) or post on [Groups.io](https://groups.io/g/KM4ACK-Pi/topics)
 
 # Usage
 Using the system is as simple as sending a Winlink message to **WXRADAR** with the appropriate three character "code" in the subject line. What goes into the body of the message doesn't matter as the body is ignored. Only one code should be sent at a time. After sending your request, please allow 2-3 minutes for the system to process the request and reply. Example Winlink radar request:
